@@ -20,6 +20,14 @@ import java.util.concurrent.TimeUnit;
 
 public abstract class CommonNearCacheTestSupport extends HazelcastTestSupport {
 
+    @After
+    public final void shutdownExecutorServices() {
+        for (ScheduledExecutorService scheduledExecutorService : scheduledExecutorServices) {
+            scheduledExecutorService.shutdown();
+        }
+        scheduledExecutorServices.clear();
+    }
+
     protected static final int DEFAULT_RECORD_COUNT = 100;
     protected static final String DEFAULT_NEAR_CACHE_NAME = "TestNearCache";
 
@@ -34,12 +42,9 @@ public abstract class CommonNearCacheTestSupport extends HazelcastTestSupport {
     protected NearCacheContext createNearCacheContext() {
         final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
         scheduledExecutorServices.add(scheduledExecutorService);
-        // no need for a NearCacheManager, so we can pass null
         return new NearCacheContext(
-                null,
                 new DefaultSerializationServiceBuilder().build(),
-                createNearCacheExecutor(),
-                null);
+                createNearCacheExecutor());
     }
 
     protected NearCacheExecutor createNearCacheExecutor() {
@@ -65,13 +70,5 @@ public abstract class CommonNearCacheTestSupport extends HazelcastTestSupport {
             default:
                 throw new IllegalArgumentException("Unsupported in-memory format: " + inMemoryFormat);
         }
-    }
-
-    @After
-    public void tearDown() {
-        for (ScheduledExecutorService scheduledExecutorService : scheduledExecutorServices) {
-            scheduledExecutorService.shutdown();
-        }
-        scheduledExecutorServices.clear();
     }
 }
