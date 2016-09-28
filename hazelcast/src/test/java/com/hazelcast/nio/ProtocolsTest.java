@@ -1,4 +1,4 @@
-package com.hazelcast.spi.partitiongroup;
+package com.hazelcast.nio;
 
 import com.hazelcast.test.HazelcastParallelClassRunner;
 import com.hazelcast.test.HazelcastTestSupport;
@@ -10,10 +10,10 @@ import org.junit.runner.RunWith;
 
 @RunWith(HazelcastParallelClassRunner.class)
 @Category({QuickTest.class, ParallelTest.class})
-public class PartitionGroupMetaDataTest extends HazelcastTestSupport {
+public class ProtocolsTest extends HazelcastTestSupport{
 
     @Test
-    public void testEnum() {
-        assertEnumCoverage(PartitionGroupMetaData.class);
+    public void testConstructor() {
+        assertUtilityConstructor(Protocols.class);
     }
 }
