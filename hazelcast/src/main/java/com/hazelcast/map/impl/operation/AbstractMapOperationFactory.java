@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-package com.hazelcast.internal.metrics;
+package com.hazelcast.map.impl.operation;
 
-/**
- * To be implemented by an object that can provide metrics (so has a bunch of probes).
- */
-public interface MetricsProvider {
+import com.hazelcast.map.impl.MapDataSerializerHook;
+import com.hazelcast.spi.OperationFactory;
 
-    void provideMetrics(MetricsRegistry registry);
+public abstract class AbstractMapOperationFactory implements OperationFactory {
+
+    @Override
+    public final int getFactoryId() {
+        return MapDataSerializerHook.F_ID;
+    }
+
 }
