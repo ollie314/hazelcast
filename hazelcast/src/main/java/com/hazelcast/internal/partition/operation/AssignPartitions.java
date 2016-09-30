@@ -17,9 +17,9 @@
 package com.hazelcast.internal.partition.operation;
 
 import com.hazelcast.internal.partition.impl.InternalPartitionServiceImpl;
-import com.hazelcast.spi.Operation;
+import com.hazelcast.internal.partition.impl.PartitionDataSerializerHook;
 
-public class AssignPartitions extends Operation {
+public class AssignPartitions extends AbstractPartitionOperation {
 
     @Override
     public void run() {
@@ -30,5 +30,10 @@ public class AssignPartitions extends Operation {
     @Override
     public Object getResponse() {
         return Boolean.TRUE;
+    }
+
+    @Override
+    public int getId() {
+        return PartitionDataSerializerHook.ASSIGN_PARTITIONS;
     }
 }

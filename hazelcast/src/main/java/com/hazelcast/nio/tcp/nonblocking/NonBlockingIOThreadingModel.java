@@ -168,17 +168,16 @@ public class NonBlockingIOThreadingModel implements IOThreadingModel {
 
     @Override
     public void onConnectionAdded(TcpIpConnection connection) {
-        NonBlockingSocketReader socketReader = (NonBlockingSocketReader) connection.getSocketReader();
-        NonBlockingSocketWriter socketWriter = (NonBlockingSocketWriter) connection.getSocketWriter();
-
-        ioBalancer.connectionAdded(socketReader, socketWriter);
+        MigratableHandler reader = (MigratableHandler) connection.getSocketReader();
+        MigratableHandler writer = (MigratableHandler) connection.getSocketWriter();
+        ioBalancer.connectionAdded(reader, writer);
     }
 
     @Override
     public void onConnectionRemoved(TcpIpConnection connection) {
-        NonBlockingSocketReader socketReader = (NonBlockingSocketReader) connection.getSocketReader();
-        NonBlockingSocketWriter socketWriter = (NonBlockingSocketWriter) connection.getSocketWriter();
-        ioBalancer.connectionRemoved(socketReader, socketWriter);
+        MigratableHandler reader = (MigratableHandler) connection.getSocketReader();
+        MigratableHandler writer = (MigratableHandler) connection.getSocketWriter();
+        ioBalancer.connectionRemoved(reader, writer);
     }
 
     private void startIOBalancer() {
@@ -217,7 +216,8 @@ public class NonBlockingIOThreadingModel implements IOThreadingModel {
         if (outputThread == null) {
             throw new IllegalStateException("IO thread is closed!");
         }
-        return new NonBlockingSocketWriter(connection, outputThread);
+        return new NonBlockingSocketWriter(
+                connection, outputThread, loggingService.getLogger(NonBlockingSocketWriter.class), ioBalancer);
     }
 
     @Override
@@ -227,6 +227,7 @@ public class NonBlockingIOThreadingModel implements IOThreadingModel {
         if (inputThread == null) {
             throw new IllegalStateException("IO thread is closed!");
         }
-        return new NonBlockingSocketReader(connection, inputThread);
+        return new NonBlockingSocketReader(
+                connection, inputThread, loggingService.getLogger(NonBlockingSocketReader.class), ioBalancer);
     }
 }

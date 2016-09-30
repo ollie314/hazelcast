@@ -17,9 +17,10 @@
 package com.hazelcast.nio.tcp.nonblocking;
 
 import com.hazelcast.internal.metrics.MetricsRegistry;
-import com.hazelcast.internal.metrics.DiscardableMetricsProvider;
 import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.internal.util.counters.SwCounter;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.nio.IOService;
 import com.hazelcast.nio.IOUtil;
 import com.hazelcast.nio.OutboundFrame;
 import com.hazelcast.nio.Packet;
@@ -27,7 +28,9 @@ import com.hazelcast.nio.ascii.TextWriteHandler;
 import com.hazelcast.nio.tcp.ClientWriteHandler;
 import com.hazelcast.nio.tcp.SocketWriter;
 import com.hazelcast.nio.tcp.TcpIpConnection;
+import com.hazelcast.nio.tcp.TcpIpConnectionManager;
 import com.hazelcast.nio.tcp.WriteHandler;
+import com.hazelcast.nio.tcp.nonblocking.iobalancer.IOBalancer;
 
 import java.io.IOException;
 import java.net.SocketException;
@@ -53,7 +56,9 @@ import static java.lang.System.currentTimeMillis;
 /**
  * The writing side of the {@link TcpIpConnection}.
  */
-public final class NonBlockingSocketWriter extends AbstractHandler implements Runnable, SocketWriter, DiscardableMetricsProvider {
+public final class NonBlockingSocketWriter
+        extends AbstractHandler<TcpIpConnection>
+        implements Runnable, SocketWriter {
 
     private static final long TIMEOUT = 3;
 
@@ -66,6 +71,8 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
     @Probe(name = "eventCount")
     private final SwCounter eventCount = newSwCounter();
     private final AtomicBoolean scheduled = new AtomicBoolean(false);
+    private final TcpIpConnectionManager connectionManager;
+    private final IOService ioService;
     private ByteBuffer outputBuffer;
     @Probe(name = "bytesWritten")
     private final SwCounter bytesWritten = newSwCounter();
@@ -83,18 +90,15 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
     // This prevents running into an NonBlockingIOThread that is migrating.
     private NonBlockingIOThread newOwner;
 
-    NonBlockingSocketWriter(TcpIpConnection connection, NonBlockingIOThread ioThread) {
-        super(connection, ioThread, SelectionKey.OP_WRITE);
+    NonBlockingSocketWriter(TcpIpConnection connection, NonBlockingIOThread ioThread, ILogger logger, IOBalancer balancer) {
+        super(connection, ioThread, SelectionKey.OP_WRITE, connection.getSocketChannelWrapper(), logger, balancer);
+        this.connectionManager = connection.getConnectionManager();
+        this.ioService = connectionManager.getIoService();
     }
 
     @Override
     public void provideMetrics(MetricsRegistry registry) {
         registry.scanAndRegister(this, "tcp.connection[" + connection.getMetricsId() + "].out");
-    }
-
-    @Override
-    public void discardMetrics(MetricsRegistry registry) {
-        registry.deregister(this);
     }
 
     @Override
@@ -166,19 +170,21 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
     }
 
     private void createWriterHandler(String protocol) throws IOException {
-        if (writeHandler == null) {
-            if (CLUSTER.equals(protocol)) {
-                configureBuffers(ioService.getSocketSendBufferSize() * KILO_BYTE);
-                writeHandler = ioService.createWriteHandler(connection);
-                outputBuffer.put(stringToBytes(CLUSTER));
-                registerOp(SelectionKey.OP_WRITE);
-            } else if (CLIENT_BINARY_NEW.equals(protocol)) {
-                configureBuffers(ioService.getSocketClientReceiveBufferSize() * KILO_BYTE);
-                writeHandler = new ClientWriteHandler();
-            } else {
-                configureBuffers(ioService.getSocketClientSendBufferSize() * KILO_BYTE);
-                writeHandler = new TextWriteHandler(connection);
-            }
+        if (writeHandler != null) {
+            return;
+        }
+
+        if (CLUSTER.equals(protocol)) {
+            configureBuffers(ioService.getSocketSendBufferSize() * KILO_BYTE);
+            writeHandler = ioService.createWriteHandler(connection);
+            outputBuffer.put(stringToBytes(CLUSTER));
+            registerOp(SelectionKey.OP_WRITE);
+        } else if (CLIENT_BINARY_NEW.equals(protocol)) {
+            configureBuffers(ioService.getSocketClientReceiveBufferSize() * KILO_BYTE);
+            writeHandler = new ClientWriteHandler();
+        } else {
+            configureBuffers(ioService.getSocketClientSendBufferSize() * KILO_BYTE);
+            writeHandler = new TextWriteHandler(connection);
         }
     }
 
@@ -306,10 +312,6 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
         ioThread.addTask(this);
     }
 
-    @Override
-    public long getEventCount() {
-        return eventCount.get();
-    }
 
     @Override
     @SuppressWarnings("unchecked")

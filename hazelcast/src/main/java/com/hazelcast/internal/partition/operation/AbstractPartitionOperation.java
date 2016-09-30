@@ -14,7 +14,17 @@
  * limitations under the License.
  */
 
-/**
- * Contains classes/interfaces related to com.hazelcast.client.map.impl.nearcache
- */
-package com.hazelcast.client.map.impl.nearcache;
+package com.hazelcast.internal.partition.operation;
+
+import com.hazelcast.internal.partition.impl.PartitionDataSerializerHook;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.Operation;
+
+abstract class AbstractPartitionOperation extends Operation implements IdentifiedDataSerializable {
+
+    @Override
+    public final int getFactoryId() {
+        return PartitionDataSerializerHook.F_ID;
+    }
+
+}

@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-package com.hazelcast.cache.impl.nearcache;
+package com.hazelcast.core;
 
-/**
- * Represents types of {@link com.hazelcast.cache.impl.nearcache.NearCache} implementations.
- */
-public enum NearCacheType {
+import java.util.Properties;
 
-    DEFAULT
+public interface RingbufferStoreFactory<T> {
 
-    // Maybe CLIENT in the future
-    // Maybe SERVER in the future
+    RingbufferStore<T> newRingbufferStore(String name, Properties properties);
 }

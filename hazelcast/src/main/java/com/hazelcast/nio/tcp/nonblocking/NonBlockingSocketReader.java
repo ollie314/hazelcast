@@ -17,10 +17,11 @@
 package com.hazelcast.nio.tcp.nonblocking;
 
 import com.hazelcast.internal.metrics.MetricsRegistry;
-import com.hazelcast.internal.metrics.DiscardableMetricsProvider;
 import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.internal.util.counters.Counter;
 import com.hazelcast.internal.util.counters.SwCounter;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.nio.IOService;
 import com.hazelcast.nio.IOUtil;
 import com.hazelcast.nio.Protocols;
 import com.hazelcast.nio.ascii.TextReadHandler;
@@ -29,6 +30,8 @@ import com.hazelcast.nio.tcp.ReadHandler;
 import com.hazelcast.nio.tcp.SocketReader;
 import com.hazelcast.nio.tcp.SocketWriter;
 import com.hazelcast.nio.tcp.TcpIpConnection;
+import com.hazelcast.nio.tcp.TcpIpConnectionManager;
+import com.hazelcast.nio.tcp.nonblocking.iobalancer.IOBalancer;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -51,34 +54,37 @@ import static java.lang.System.currentTimeMillis;
  * {@link #handle()} is called to read out the data from the socket into a bytebuffer and hand it over to the
  * {@link ReadHandler} to get processed.
  */
-public final class NonBlockingSocketReader extends AbstractHandler implements SocketReader, DiscardableMetricsProvider {
+public final class NonBlockingSocketReader
+        extends AbstractHandler<TcpIpConnection>
+        implements SocketReader {
 
-    @Probe(name = "eventCount")
-    private final SwCounter eventCount = newSwCounter();
     @Probe(name = "bytesRead")
     private final SwCounter bytesRead = newSwCounter();
     @Probe(name = "normalFramesRead")
     private final SwCounter normalFramesRead = newSwCounter();
     @Probe(name = "priorityFramesRead")
     private final SwCounter priorityFramesRead = newSwCounter();
+    private final TcpIpConnectionManager connectionManager;
+    private final IOService ioService;
 
     private ReadHandler readHandler;
     private ByteBuffer inputBuffer;
     private volatile long lastReadTime;
 
-    public NonBlockingSocketReader(TcpIpConnection connection, NonBlockingIOThread ioThread) {
-        super(connection, ioThread, SelectionKey.OP_READ);
-        this.ioThread = ioThread;
+    public NonBlockingSocketReader(
+            TcpIpConnection connection,
+            NonBlockingIOThread ioThread,
+            ILogger logger,
+            IOBalancer balancer) {
+        super(connection, ioThread, SelectionKey.OP_READ, connection.getSocketChannelWrapper(), logger, balancer);
+
+        this.connectionManager = connection.getConnectionManager();
+        this.ioService = connectionManager.getIoService();
     }
 
     @Override
     public void provideMetrics(MetricsRegistry registry) {
         registry.scanAndRegister(this, "tcp.connection[" + connection.getMetricsId() + "].in");
-    }
-
-    @Override
-    public void discardMetrics(MetricsRegistry registry) {
-        registry.deregister(this);
     }
 
     @Probe(name = "idleTimeMs")
@@ -99,11 +105,6 @@ public final class NonBlockingSocketReader extends AbstractHandler implements So
     @Override
     public long getLastReadTimeMillis() {
         return lastReadTime;
-    }
-
-    @Override
-    public long getEventCount() {
-        return eventCount.get();
     }
 
     @Override
@@ -217,18 +218,23 @@ public final class NonBlockingSocketReader extends AbstractHandler implements So
         try {
             connection.setReceiveBufferSize(size);
         } catch (SocketException e) {
-            logger.finest("Failed to adjust TCP receive buffer of " + connection + " to "
-                    + size + " B.", e);
+            logger.finest("Failed to adjust TCP receive buffer of " + connection + " to " + size + " B.", e);
         }
     }
 
     @Override
     public void close() {
-        //todo:
-        // ioThread race, shutdown can end up on the old selector
         ioThread.addTaskAndWakeup(new Runnable() {
             @Override
             public void run() {
+                if (ioThread != Thread.currentThread()) {
+                    // the NonBlockingSocketReader has migrated to a different IOThread after the close got called.
+                    // so we need to send the task to the right ioThread. Otherwise multiple ioThreads could be accessing
+                    // the same socketChannel.
+                    ioThread.addTaskAndWakeup(this);
+                    return;
+                }
+
                 try {
                     socketChannel.closeInbound();
                 } catch (IOException e) {
@@ -246,7 +252,7 @@ public final class NonBlockingSocketReader extends AbstractHandler implements So
     private class StartMigrationTask implements Runnable {
         private final NonBlockingIOThread newOwner;
 
-        public StartMigrationTask(NonBlockingIOThread newOwner) {
+        StartMigrationTask(NonBlockingIOThread newOwner) {
             this.newOwner = newOwner;
         }
 
