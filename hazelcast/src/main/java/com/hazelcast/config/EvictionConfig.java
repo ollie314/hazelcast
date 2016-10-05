@@ -57,7 +57,6 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
      */
     public static final EvictionPolicy DEFAULT_EVICTION_POLICY = EvictionPolicy.LRU;
 
-    protected boolean sizeConfigured;
     protected int size = DEFAULT_MAX_ENTRY_COUNT;
     protected MaxSizePolicy maxSizePolicy = DEFAULT_MAX_SIZE_POLICY;
     protected EvictionPolicy evictionPolicy = DEFAULT_EVICTION_POLICY;
@@ -65,6 +64,11 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
     protected EvictionPolicyComparator comparator;
 
     protected EvictionConfig readOnly;
+
+    /**
+     * Used by the {@link NearCacheConfigAccessor} to initialize the proper default value for on-heap maps.
+     */
+    boolean sizeConfigured;
 
     public EvictionConfig() {
     }
@@ -266,7 +270,6 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
                 + ", evictionPolicy=" + evictionPolicy
                 + ", comparatorClassName=" + comparatorClassName
                 + ", comparator=" + comparator
-                + ", readOnly=" + readOnly
                 + '}';
     }
 }
