@@ -14,26 +14,11 @@
  * limitations under the License.
  */
 
-package com.hazelcast.client.spi;
+package com.hazelcast.nio.tcp;
 
-import com.hazelcast.core.Partition;
-import com.hazelcast.nio.Address;
-import com.hazelcast.nio.serialization.Data;
+import com.hazelcast.nio.Connection;
 
-/**
- * Partition service for Hazelcast clients.
- *
- * Allows to retrieve information about the partition count, the partition owner or the partitionId of a key.
- */
-public interface ClientPartitionService {
+public interface SocketWriterInitializer<C extends Connection> {
 
-    Address getPartitionOwner(int partitionId);
-
-    int getPartitionId(Data key);
-
-    int getPartitionId(Object key);
-
-    int getPartitionCount();
-
-    Partition getPartition(int partitionId);
+    void init(C connection, SocketWriter writer, String protocol);
 }
