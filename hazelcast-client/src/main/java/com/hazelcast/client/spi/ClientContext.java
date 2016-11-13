@@ -34,11 +34,11 @@ public final class ClientContext {
     private final ClientInvocationService invocationService;
     private final ClientExecutionService executionService;
     private final ClientListenerService listenerService;
-    private final NearCacheManager nearCacheManager;
     private final ClientTransactionManagerService transactionManager;
     private final ProxyManager proxyManager;
     private final ClientConfig clientConfig;
     private final LoggingService loggingService;
+    private final NearCacheManager nearCacheManager;
 
     ClientContext(HazelcastClientInstanceImpl client, ProxyManager proxyManager) {
         this.serializationService = client.getSerializationService();
@@ -47,11 +47,11 @@ public final class ClientContext {
         this.invocationService = client.getInvocationService();
         this.executionService = client.getClientExecutionService();
         this.listenerService = client.getListenerService();
-        this.nearCacheManager = client.getNearCacheManager();
         this.proxyManager = proxyManager;
         this.clientConfig = client.getClientConfig();
         this.transactionManager = client.getTransactionManager();
         this.loggingService = client.getLoggingService();
+        this.nearCacheManager = client.getNearCacheManager();
     }
 
     public HazelcastInstance getHazelcastInstance() {
@@ -68,10 +68,6 @@ public final class ClientContext {
 
     public ClientPartitionService getPartitionService() {
         return partitionService;
-    }
-
-    public ClientInvocationService getInvocationService() {
-        return invocationService;
     }
 
     public ClientTransactionManagerService getTransactionManager() {

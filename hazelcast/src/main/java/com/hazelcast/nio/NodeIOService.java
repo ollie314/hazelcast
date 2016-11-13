@@ -27,13 +27,13 @@ import com.hazelcast.instance.NodeState;
 import com.hazelcast.instance.OutOfMemoryErrorDispatcher;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
+import com.hazelcast.internal.networking.IOOutOfMemoryHandler;
+import com.hazelcast.internal.networking.ReadHandler;
+import com.hazelcast.internal.networking.SocketChannelWrapperFactory;
+import com.hazelcast.internal.networking.WriteHandler;
 import com.hazelcast.internal.serialization.InternalSerializationService;
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.nio.serialization.Data;
-import com.hazelcast.nio.tcp.ReadHandler;
-import com.hazelcast.nio.tcp.SocketChannelWrapperFactory;
+import com.hazelcast.logging.LoggingService;
 import com.hazelcast.nio.tcp.TcpIpConnection;
-import com.hazelcast.nio.tcp.WriteHandler;
 import com.hazelcast.spi.EventService;
 import com.hazelcast.spi.ExecutionService;
 import com.hazelcast.spi.annotation.PrivateApi;
@@ -58,18 +58,28 @@ public class NodeIOService implements IOService {
     }
 
     @Override
+    public HazelcastThreadGroup getHazelcastThreadGroup() {
+        return nodeEngine.getHazelcastThreadGroup();
+    }
+
+    @Override
+    public LoggingService getLoggingService() {
+        return nodeEngine.getLoggingService();
+    }
+
+    @Override
     public boolean isActive() {
         return node.getState() != NodeState.SHUT_DOWN;
     }
 
     @Override
-    public ILogger getLogger(String name) {
-        return node.getLogger(name);
-    }
-
-    @Override
-    public void onOutOfMemory(OutOfMemoryError oom) {
-        OutOfMemoryErrorDispatcher.onOutOfMemory(oom);
+    public IOOutOfMemoryHandler getIoOutOfMemoryHandler() {
+        return new IOOutOfMemoryHandler() {
+            @Override
+            public void handle(OutOfMemoryError error) {
+                OutOfMemoryErrorDispatcher.onOutOfMemory(error);
+            }
+        };
     }
 
     @Override
@@ -121,18 +131,6 @@ public class NodeIOService implements IOService {
     @Override
     public boolean isRestEnabled() {
         return node.getProperties().getBoolean(GroupProperty.REST_ENABLED);
-    }
-
-    @Override
-    public String getThreadPrefix() {
-        HazelcastThreadGroup threadGroup = node.getHazelcastThreadGroup();
-        return threadGroup.getThreadPoolNamePrefix("IO");
-    }
-
-    @Override
-    public ThreadGroup getThreadGroup() {
-        HazelcastThreadGroup threadGroup = node.getHazelcastThreadGroup();
-        return threadGroup.getInternalThreadGroup();
     }
 
     @Override
@@ -280,16 +278,6 @@ public class NodeIOService implements IOService {
     @Override
     public EventService getEventService() {
         return nodeEngine.getEventService();
-    }
-
-    @Override
-    public Data toData(Object obj) {
-        return nodeEngine.toData(obj);
-    }
-
-    @Override
-    public Object toObject(Data data) {
-        return nodeEngine.toObject(data);
     }
 
     @Override

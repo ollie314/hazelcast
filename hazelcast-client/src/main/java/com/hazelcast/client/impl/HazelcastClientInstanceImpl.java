@@ -17,6 +17,7 @@
 package com.hazelcast.client.impl;
 
 import com.hazelcast.cache.impl.nearcache.NearCacheManager;
+import com.hazelcast.cardinality.CardinalityEstimator;
 import com.hazelcast.cardinality.impl.CardinalityEstimatorService;
 import com.hazelcast.client.ClientExtension;
 import com.hazelcast.client.HazelcastClient;
@@ -66,7 +67,6 @@ import com.hazelcast.concurrent.semaphore.SemaphoreService;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.DiscoveryConfig;
 import com.hazelcast.config.GroupConfig;
-import com.hazelcast.cardinality.CardinalityEstimator;
 import com.hazelcast.core.Client;
 import com.hazelcast.core.ClientService;
 import com.hazelcast.core.Cluster;
@@ -221,14 +221,13 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
         invocationService = initInvocationService();
         listenerService = initListenerService();
         userContext = new ConcurrentHashMap<String, Object>();
-        nearCacheManager = clientExtension.createNearCacheManager();
-
         diagnostics = initDiagnostics(config);
 
         proxyManager.init(config);
         hazelcastCacheManager = new ClientICacheManager(this);
 
         lockReferenceIdGenerator = new ClientLockReferenceIdGenerator();
+        nearCacheManager = clientExtension.createNearCacheManager();
     }
 
     private Diagnostics initDiagnostics(ClientConfig config) {
@@ -362,7 +361,6 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
         final ClientNetworkConfig networkConfig = config.getNetworkConfig();
         if (networkConfig.isSmartRouting()) {
             return new ClientSmartListenerService(this, eventThreadCount, eventQueueCapacity);
-
         } else {
             return new ClientNonSmartListenerService(this, eventThreadCount, eventQueueCapacity);
         }
@@ -377,16 +375,6 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
         lifecycleService.setStarted();
         invocationService.start();
         connectionManager.start();
-        try {
-            clusterService.start();
-        } catch (Exception e) {
-            lifecycleService.shutdown();
-            throw ExceptionUtil.rethrow(e);
-        }
-        listenerService.start();
-        loadBalancer.init(getCluster(), config);
-        partitionService.start();
-        clientExtension.afterStart(this);
 
         diagnostics.start();
         diagnostics.register(
@@ -397,6 +385,19 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
                 new MetricsPlugin(loggingService.getLogger(MetricsPlugin.class), metricsRegistry, properties));
         diagnostics.register(
                 new SystemLogPlugin(properties, connectionManager, this, loggingService.getLogger(SystemLogPlugin.class)));
+
+        metricsRegistry.collectMetrics(listenerService);
+
+        try {
+            clusterService.start();
+        } catch (Exception e) {
+            lifecycleService.shutdown();
+            throw ExceptionUtil.rethrow(e);
+        }
+        listenerService.start();
+        loadBalancer.init(getCluster(), config);
+        partitionService.start();
+        clientExtension.afterStart(this);
     }
 
     public MetricsRegistryImpl getMetricsRegistry() {
@@ -652,6 +653,10 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
 
     public ClientInvocationService getInvocationService() {
         return invocationService;
+    }
+
+    public ClientExecutionServiceImpl getExecutionService() {
+        return executionService;
     }
 
     public ClientListenerService getListenerService() {
