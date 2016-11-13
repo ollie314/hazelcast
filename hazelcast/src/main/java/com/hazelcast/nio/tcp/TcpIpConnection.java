@@ -20,10 +20,15 @@ import com.hazelcast.internal.metrics.DiscardableMetricsProvider;
 import com.hazelcast.internal.metrics.MetricsProvider;
 import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.metrics.Probe;
+import com.hazelcast.internal.networking.IOThreadingModel;
+import com.hazelcast.internal.networking.SocketChannelWrapper;
+import com.hazelcast.internal.networking.SocketConnection;
+import com.hazelcast.internal.networking.SocketReader;
+import com.hazelcast.internal.networking.SocketWriter;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
-import com.hazelcast.nio.Connection;
 import com.hazelcast.nio.ConnectionType;
+import com.hazelcast.nio.IOService;
 import com.hazelcast.nio.OutboundFrame;
 
 import java.io.EOFException;
@@ -46,7 +51,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @see IOThreadingModel
  */
 @SuppressWarnings("checkstyle:methodcount")
-public final class TcpIpConnection implements Connection, MetricsProvider, DiscardableMetricsProvider {
+public final class TcpIpConnection implements SocketConnection, MetricsProvider, DiscardableMetricsProvider {
 
     private final SocketChannelWrapper socketChannel;
 
@@ -62,6 +67,8 @@ public final class TcpIpConnection implements Connection, MetricsProvider, Disca
 
     private final int connectionId;
 
+    private final IOService ioService;
+
     private Address endPoint;
 
     private TcpIpConnectionMonitor monitor;
@@ -75,10 +82,11 @@ public final class TcpIpConnection implements Connection, MetricsProvider, Disca
     public TcpIpConnection(TcpIpConnectionManager connectionManager,
                            int connectionId,
                            SocketChannelWrapper socketChannel,
-                           IOThreadingModel<TcpIpConnection, SocketReader, SocketWriter> ioThreadingModel) {
+                           IOThreadingModel ioThreadingModel) {
         this.connectionId = connectionId;
-        this.logger = connectionManager.getIoService().getLogger(TcpIpConnection.class.getName());
         this.connectionManager = connectionManager;
+        this.ioService = connectionManager.getIoService();
+        this.logger = ioService.getLoggingService().getLogger(TcpIpConnection.class);
         this.socketChannel = socketChannel;
         this.socketWriter = ioThreadingModel.newSocketWriter(this);
         this.socketReader = ioThreadingModel.newSocketReader(this);
@@ -109,6 +117,11 @@ public final class TcpIpConnection implements Connection, MetricsProvider, Disca
     }
 
     @Override
+    public SocketChannelWrapper getSocketChannel() {
+        return socketChannel;
+    }
+
+    @Override
     public ConnectionType getType() {
         return type;
     }
@@ -128,10 +141,6 @@ public final class TcpIpConnection implements Connection, MetricsProvider, Disca
 
     public TcpIpConnectionManager getConnectionManager() {
         return connectionManager;
-    }
-
-    public SocketChannelWrapper getSocketChannelWrapper() {
-        return socketChannel;
     }
 
     @Override
@@ -156,12 +165,12 @@ public final class TcpIpConnection implements Connection, MetricsProvider, Disca
 
     @Override
     public long lastWriteTimeMillis() {
-        return socketWriter.getLastWriteTimeMillis();
+        return socketWriter.lastWriteTimeMillis();
     }
 
     @Override
     public long lastReadTimeMillis() {
-        return socketReader.getLastReadTimeMillis();
+        return socketReader.lastReadTimeMillis();
     }
 
     @Override
@@ -261,7 +270,7 @@ public final class TcpIpConnection implements Connection, MetricsProvider, Disca
         }
 
         connectionManager.onClose(this);
-        connectionManager.getIoService().onDisconnect(endPoint, cause);
+        ioService.onDisconnect(endPoint, cause);
         if (cause != null && monitor != null) {
             monitor.onError(cause);
         }
@@ -277,7 +286,7 @@ public final class TcpIpConnection implements Connection, MetricsProvider, Disca
             message += "Socket explicitly closed";
         }
 
-        if (connectionManager.getIoService().isActive()) {
+        if (ioService.isActive()) {
             if (closeCause == null || closeCause instanceof EOFException) {
                 logger.info(message);
             } else {

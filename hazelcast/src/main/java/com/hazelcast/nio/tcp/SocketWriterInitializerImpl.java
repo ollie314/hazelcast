@@ -16,6 +16,9 @@
 
 package com.hazelcast.nio.tcp;
 
+import com.hazelcast.internal.networking.SocketWriter;
+import com.hazelcast.internal.networking.SocketWriterInitializer;
+import com.hazelcast.internal.networking.WriteHandler;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.IOService;
 import com.hazelcast.nio.ascii.TextWriteHandler;
@@ -63,7 +66,7 @@ public class SocketWriterInitializerImpl implements SocketWriterInitializer<TcpI
         IOService ioService = connection.getConnectionManager().getIoService();
         int sizeKb = CLUSTER.equals(protocol)
                 ? ioService.getSocketSendBufferSize()
-                : ioService.getSocketClientReceiveBufferSize();
+                : ioService.getSocketClientSendBufferSize();
         int size = KILO_BYTE * sizeKb;
 
         ByteBuffer outputBuffer = newByteBuffer(size, ioService.isSocketBufferDirect());

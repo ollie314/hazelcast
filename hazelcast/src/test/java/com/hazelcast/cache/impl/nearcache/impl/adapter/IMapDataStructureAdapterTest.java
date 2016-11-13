@@ -16,6 +16,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(HazelcastParallelClassRunner.class)
 @Category({QuickTest.class, ParallelTest.class})
@@ -68,6 +71,20 @@ public class IMapDataStructureAdapterTest extends HazelcastTestSupport {
     }
 
     @Test
+    public void testPutAll() {
+        Map<Integer, String> expectedResult = new HashMap<Integer, String>();
+        expectedResult.put(23, "value-23");
+        expectedResult.put(42, "value-42");
+
+        adapter.putAll(expectedResult);
+
+        assertEquals(expectedResult.size(), map.size());
+        for (Integer key : expectedResult.keySet()) {
+            assertTrue(map.containsKey(key));
+        }
+    }
+
+    @Test
     public void testGetAll() {
         map.put(23, "value-23");
         map.put(42, "value-42");
@@ -78,5 +95,24 @@ public class IMapDataStructureAdapterTest extends HazelcastTestSupport {
 
         Map<Integer, String> result = adapter.getAll(expectedResult.keySet());
         assertEquals(expectedResult, result);
+    }
+
+    @Test
+    public void testRemove() {
+        map.put(23, "value-23");
+        assertTrue(map.containsKey(23));
+
+        adapter.remove(23);
+        assertFalse(map.containsKey(23));
+    }
+
+    @Test
+    public void testGetLocalMapStats() {
+        assertNotNull(adapter.getLocalMapStats());
+
+        assertEquals(0, adapter.getLocalMapStats().getOwnedEntryCount());
+
+        adapter.put(23, "value-23");
+        assertEquals(1, adapter.getLocalMapStats().getOwnedEntryCount());
     }
 }

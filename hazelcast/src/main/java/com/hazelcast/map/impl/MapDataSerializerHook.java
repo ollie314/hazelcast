@@ -33,6 +33,7 @@ import com.hazelcast.map.impl.operation.AwaitMapFlushOperation;
 import com.hazelcast.map.impl.operation.ClearBackupOperation;
 import com.hazelcast.map.impl.operation.ClearNearCacheOperation;
 import com.hazelcast.map.impl.operation.ClearOperation;
+import com.hazelcast.map.impl.operation.ClearOperationFactory;
 import com.hazelcast.map.impl.operation.ContainsKeyOperation;
 import com.hazelcast.map.impl.operation.ContainsValueOperation;
 import com.hazelcast.map.impl.operation.ContainsValueOperationFactory;
@@ -77,6 +78,7 @@ import com.hazelcast.map.impl.operation.PartitionWideEntryOperation;
 import com.hazelcast.map.impl.operation.PartitionWideEntryOperationFactory;
 import com.hazelcast.map.impl.operation.PartitionWideEntryWithPredicateBackupOperation;
 import com.hazelcast.map.impl.operation.PartitionWideEntryWithPredicateOperation;
+import com.hazelcast.map.impl.operation.PartitionWideEntryWithPredicateOperationFactory;
 import com.hazelcast.map.impl.operation.PostJoinMapOperation;
 import com.hazelcast.map.impl.operation.PutAllBackupOperation;
 import com.hazelcast.map.impl.operation.PutAllOperation;
@@ -123,7 +125,6 @@ import com.hazelcast.map.merge.PassThroughMergePolicy;
 import com.hazelcast.map.merge.PutIfAbsentMapMergePolicy;
 import com.hazelcast.nio.serialization.DataSerializableFactory;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.replicatedmap.impl.operation.ClearOperationFactory;
 import com.hazelcast.util.ConstructorFunction;
 
 import static com.hazelcast.internal.serialization.impl.FactoryIdHelper.MAP_DS_FACTORY;
@@ -678,6 +679,11 @@ public final class MapDataSerializerHook implements DataSerializerHook {
         constructors[PARTITION_WIDE_ENTRY_FACTORY] = new ConstructorFunction<Integer, IdentifiedDataSerializable>() {
             public IdentifiedDataSerializable createNew(Integer arg) {
                 return new PartitionWideEntryOperationFactory();
+            }
+        };
+        constructors[PARTITION_WIDE_PREDICATE_ENTRY_FACTORY] = new ConstructorFunction<Integer, IdentifiedDataSerializable>() {
+            public IdentifiedDataSerializable createNew(Integer arg) {
+                return new PartitionWideEntryWithPredicateOperationFactory();
             }
         };
         constructors[PUT_ALL_PARTITION_AWARE_FACTORY] = new ConstructorFunction<Integer, IdentifiedDataSerializable>() {

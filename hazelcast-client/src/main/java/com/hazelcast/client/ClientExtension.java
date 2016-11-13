@@ -22,7 +22,7 @@ import com.hazelcast.client.spi.ClientProxyFactory;
 import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.map.impl.MapService;
 import com.hazelcast.nio.SocketInterceptor;
-import com.hazelcast.nio.tcp.SocketChannelWrapperFactory;
+import com.hazelcast.internal.networking.SocketChannelWrapperFactory;
 
 /**
  * ClientExtension is a client extension mechanism to be able to plug different implementations of
@@ -44,7 +44,7 @@ public interface ClientExtension {
      * Creates a {@link InternalSerializationService} instance to be used by this client.
      *
      * @param version serialization version to be created. Values less than 1 will be ignored and max supported version
-     * will be used
+     *                will be used
      * @return the created {@link InternalSerializationService} instance
      */
     InternalSerializationService createSerializationService(byte version);

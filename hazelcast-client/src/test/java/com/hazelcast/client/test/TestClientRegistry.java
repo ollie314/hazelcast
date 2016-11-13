@@ -121,15 +121,15 @@ public class TestClientRegistry {
         }
 
         @Override
-        protected void initializeSelectors(HazelcastClientInstanceImpl client) {
+        protected void initIOThreads(HazelcastClientInstanceImpl client) {
         }
 
         @Override
-        protected void startSelectors() {
+        protected void startIOThreads() {
         }
 
         @Override
-        protected void shutdownSelectors() {
+        protected void shutdownIOThreads() {
         }
 
         @Override
@@ -206,7 +206,7 @@ public class TestClientRegistry {
         }
 
         @Override
-        public void init() throws IOException {
+        public void start() throws IOException {
             // no init for mock connections
         }
 
@@ -358,9 +358,7 @@ public class TestClientRegistry {
         @Override
         public void close(String reason, Throwable cause) {
             super.close(reason, cause);
-            ClientConnectionManager connectionManager = responseConnection.getConnectionManager();
-            connectionManager.destroyConnection(responseConnection, reason,
-                    new TargetDisconnectedException("Mocked Remote socket closed"));
+            responseConnection.close(reason, new TargetDisconnectedException("Mocked Remote socket closed"));
         }
 
         @Override
